@@ -132,10 +132,50 @@ class LoginHandler(Handler):
 	def get(self):
 		self.render("login.html")
 
+	def post(self):
+		username = self.request.get("username")
+		password = self.request.get("password")
+		#Chech if user name exists
+  		q = User.gql("WHERE username = '"+str(username)+"'");
+  		userObj = q.get()
+		if userObj:
+			if self.valid_pw(username, password, userObj.password):
+				self.response.headers.add_header('Set-Cookie', 'user_id='+str(userObj.key().id())+"|"+str(userObj.password.split('|')[0])+' Path=/welcome')
+				self.redirect("/welcome")
+			else:
+				self.render("login.html" , errorUser="Invalid login credentials.")
+		else:
+			self.render("login.html" , errorUser="Invalid login credentials.")
+
+
+
+	def make_salt(self):
+	    return ''.join(random.choice(string.letters) for x in xrange(5))
+
+	# Implement the function valid_pw() that returns True if a user's password
+	# matches its hash. You will need to modify make_pw_hash.
+
+
+	def make_pw_hash(self,name, pw, salt=None):
+	    if not salt:
+	        salt = self.make_salt()
+	    h = hashlib.sha256(str(name) + str(pw) + str(salt)).hexdigest()
+	    return '%s|%s' % (h, salt)
+
+
+	def valid_pw(self,name, pw, h):
+	    salt = h.split('|')[1]
+	    return h == self.make_pw_hash(name, pw, salt)
+
+class LogoutHandler(Handler):
+	def get(self):
+		self.response.headers.add_header('Set-Cookie', 'user_id=')
+		self.redirect("/signup")
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler),
     ('/signup',SignUpHandler),
     ('/welcome',WelcomeHandler),
-    ('/login',LoginHandler)
+    ('/login',LoginHandler),
+    ('/logout',LogoutHandler)
 ], debug=True)
